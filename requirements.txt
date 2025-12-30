@@ -1,0 +1,5 @@
+flask
+pandas
+openpyxl
+gunicorn
+flask-httpauth  # optional, for password protection

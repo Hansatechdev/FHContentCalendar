@@ -1,0 +1,144 @@
+<!-- Content Calendar Viewer Template - HTML Version 5.12 -->
+<!-- Updated: December 30, 2025 -->
+<!-- Changes: Line breaks fixed to replace literal \\n with <br> -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FH Content Calendar</title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Open Sans', sans-serif; background:#f5f5f5; margin:0; padding:20px; }
+    .card { background:white; border-radius:16px; box-shadow:0 4px 12px rgba(0,0,0,0.1); max-width:420px; margin:20px auto; padding:20px; }
+    .category-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+    .category { background:#AEBB43; color:white; padding:4px 12px; border-radius:20px; font-size:14px; font-weight:600; }
+    .new-badge { background:#F4831B; color:white; padding:2px 8px; border-radius:12px; font-size:12px; }
+    .title-row { display:flex; align-items:center; margin-bottom:8px; }
+    .logo { width:40px; height:40px; border-radius:50%; object-fit:cover; margin-right:12px; }
+    h2 { margin:0; font-size:22px; color:#000; }
+    .date { color:#666; font-size:14px; margin-bottom:16px; }
+    p { font-size:18px; line-height:1.6; color:#000; margin:0 0 20px 0; }
+    img { width:100%; border-radius:12px; margin:16px 0; }
+    .footer { display:flex; justify-content:space-between; align-items:center; font-size:28px; }
+    .heart { cursor:pointer; }
+    .button { background:#47BBBC; color:white; padding:10px 24px; border-radius:30px; text-decoration:none; font-weight:600; }
+    .nav { text-align:center; background:#f0f0f0; padding:15px; border-radius:8px; margin-bottom:20px; }
+    select { padding:10px; font-size:16px; border-radius:8px; margin:0 10px; }
+    a { margin:0 20px; color:#39527A; text-decoration:none; font-weight:bold; }
+    .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; max-width: 900px; margin: 20px auto; }
+    .weekday-header { text-align: center; font-weight: bold; padding: 10px; background: #e0e0e0; border-radius: 8px; }
+    .day { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px; min-height: 100px; cursor: pointer; position: relative; }
+    .day:hover { background: #f0f8ff; }
+    .day-number { font-weight: bold; margin-bottom: 5px; }
+    .day-posts { font-size: 12px; color: #555; }
+    .post-preview { display: none; position: absolute; background: white; border: 1px solid #ccc; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 10; width: 350px; left: 50%; transform: translateX(-50%); bottom: 110%; border-radius: 12px; }
+    .day:hover .post-preview { display: block; }
+    .month-title { text-align: center; font-size: 28px; font-weight: 700; margin: 30px 0 20px 0; color: #000; }
+    .version { text-align:center; font-size:12px; color:#888; margin-top:20px; }
+  </style>
+</head>
+<body>
+
+<div class="nav">
+  <strong>View Mode:</strong>
+  <select onchange="window.location.href='/?mode=' + this.value + '&date={{ selected_date }}'">
+    <option value="day" {% if view_mode == 'day' %}selected{% endif %}>Day</option>
+    <option value="week" {% if view_mode == 'week' %}selected{% endif %}>Week</option>
+    <option value="month" {% if view_mode == 'month' %}selected{% endif %}>Month</option>
+    <option value="all" {% if view_mode == 'all' %}selected{% endif %}>All (Feed)</option>
+  </select>
+  <br><br>
+  <strong>Select:</strong>
+  <select onchange="window.location.href='/?date=' + this.value + '&mode={{ view_mode }}'">
+    {% if view_mode == 'month' %}
+      {% for first_day in unique_month_first_days %}
+        <option value="{{ first_day }}" {% if first_day.year == selected_date.year and first_day.month == selected_date.month %}selected{% endif %}>
+          {{ first_day.strftime('%B %Y') }}
+        </option>
+      {% endfor %}
+    {% elif view_mode == 'week' %}
+      {% for d in dates %}
+        <option value="{{ d }}" {% if d == selected_date %}selected{% endif %}>
+          {{ week_options[d] }}
+        </option>
+      {% endfor %}
+    {% else %}
+      {% for d in dates %}
+        <option value="{{ d }}" {% if d == selected_date %}selected{% endif %}>
+          {{ d.strftime('%B %d, %Y') }}
+        </option>
+      {% endfor %}
+    {% endif %}
+  </select>
+  <br><br>
+  {% if prev_date %}<a href="/?date={{ prev_date }}&mode={{ view_mode }}">← Previous</a>{% endif %}
+  {% if next_date %}<a href="/?date={{ next_date }}&mode={{ view_mode }}" style="margin-left: 40px;">Next →</a>{% endif %}
+</div>
+
+{% if view_mode == 'day' or view_mode == 'week' or view_mode == 'all' %}
+  {% set display_posts = posts if view_mode != 'week' else week_posts %}
+  {% if view_mode == 'all' %}
+    {% set display_posts = posts %}
+  {% endif %}
+  {% for post in display_posts %}
+  <div class="card">
+    <div class="category-header">
+      <span class="category">{{ post['Sub-Category'] or 'Organization' }}</span>
+    </div>
+
+    <div class="title-row">
+      <img src="{{ logo }}" alt="Food for the Hungry Logo" class="logo">
+      <h2>{{ post['Title'] }}</h2>
+    </div>
+
+    <div class="date">{{ post['Publish Date (DD/MM/YYYY)'].strftime('%B %d, %Y') }}</div>
+
+    <p>{{ post['Body Text'] | replace('\\n', '<br>') | safe }}</p>
+
+    {% if post['image'] %}
+      <img src="{{ url_for('static', filename=post['image']) }}" alt="{{ post['Title'] }}">
+    {% endif %}
+
+    <div class="footer">
+      <span class="heart">❤️</span>
+      {% if post['Hyperlink Text'] and post['Destination URL'] %}
+        <a href="{{ post['Destination URL'] }}" class="button" target="_blank">
+          {{ post['Hyperlink Text'] }}
+        </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+{% elif view_mode == 'month' %}
+  <h2 class="month-title">{{ selected_date.strftime('%B %Y') }}</h2>
+  <div class="calendar">
+    {% for header in weekday_headers %}
+      <div class="weekday-header">{{ header }}</div>
+    {% endfor %}
+    {% for day in month_days %}
+      <div class="day" onclick="window.location.href='/?date={{ day }}&mode=day'">
+        <div class="day-number">{{ day.day }}</div>
+        {% if calendar_data[day] %}
+          {% for post in calendar_data[day] %}
+            <div class="day-posts">
+              {{ post['Sub-Category'] }} - {{ post['Item Name'] }}
+              <div class="post-preview">
+                <strong>{{ post['Title'] }}</strong><br>
+                {{ post['Body Text'] | replace('\\n', '<br>') | safe | truncate(200) }}
+              </div>
+            </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<div class="version">
+  Render Post Version: {{ py_version }} | HTML Version: 5.12
+</div>
+
+</body>
+</html>

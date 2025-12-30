@@ -1,0 +1,71 @@
+# Content Calendar Viewer - Version 1.4 (Updated: December 30, 2025)
+# Changes: Official FH logo, blank empty fields, exact app styling, removed house icon, versioning added
+
+import pandas as pd
+from flask import Flask, render_template, request
+import os
+
+app = Flask(__name__)
+
+# Load the Excel file
+df = pd.read_excel('Content_Calendar.xlsx', sheet_name='Feed List')
+
+# Convert publish date to datetime
+df['Publish Date (DD/MM/YYYY)'] = pd.to_datetime(df['Publish Date (DD/MM/YYYY)'], format='%d/%m/%Y')
+
+# Replace NaN with blank strings (prevents "NAN" display)
+df = df.fillna('')
+
+# Sort by date
+df = df.sort_values('Publish Date (DD/MM/YYYY)')
+
+# Unique dates
+unique_dates = df['Publish Date (DD/MM/YYYY)'].dt.date.unique()
+
+# Image folder
+IMAGE_FOLDER = 'downloaded_images'
+app.static_folder = IMAGE_FOLDER
+
+# Official FH Logo (SVG)
+FH_LOGO = 'https://scontent.ftll3-1.fna.fbcdn.net/v/t39.30808-1/457303426_911180744386777_3888699262340289275_n.jpg?stp=dst-jpg_s200x200_tt6&_nc_cat=102&ccb=1-7&_nc_sid=2d3e12&_nc_ohc=Nd6kmFjAJQEQ7kNvwFJ0lkG&_nc_oc=AdnOJfcQCICar3GKfMiQ8Fbyf6cCvhpDht7GswwCBDJqBNl9p2Ngo3LgTxef1oEIM7kBPMJxOpfeILHZNneZy03z&_nc_zt=24&_nc_ht=scontent.ftll3-1.fna&_nc_gid=-IS6c9rLDrHQIP3ejnsIoA&oh=00_Afk6sAZDlfx82GcdXX2vSpBJWlk9JjorQW5Ql0KMPSbuWA&oe=6959C0AA'
+
+# Category colors
+CATEGORY_COLORS = {
+    'About FH': '#AEBB43',  # Green
+    'Programs': '#47BBBC',  # Teal
+    '': '#AEBB43',          # Default
+}
+
+@app.route('/')
+def index():
+    date_str = request.args.get('date')
+    if date_str:
+        selected_date = pd.to_datetime(date_str).date()
+    else:
+        selected_date = unique_dates[0] if len(unique_dates) > 0 else None
+    
+    if selected_date:
+        posts = df[df['Publish Date (DD/MM/YYYY)'].dt.date == selected_date].to_dict('records')
+        for post in posts:
+            item_name = post['Item Name']
+            image_path = f"{item_name}.jpg"
+            post['image'] = image_path if os.path.exists(os.path.join(IMAGE_FOLDER, image_path)) else None
+            sub_cat = post.get('Sub-Category', 'About FH')
+            post['category_color'] = CATEGORY_COLORS.get(sub_cat, '#AEBB43')
+    else:
+        posts = []
+    
+    current_index = list(unique_dates).index(selected_date) if selected_date in unique_dates else 0
+    prev_date = unique_dates[current_index - 1] if current_index > 0 else None
+    next_date = unique_dates[current_index + 1] if current_index < len(unique_dates) - 1 else None
+    
+    return render_template('index.html', 
+                           posts=posts, 
+                           selected_date=selected_date,
+                           prev_date=prev_date, 
+                           next_date=next_date, 
+                           dates=unique_dates,
+                           logo=FH_LOGO)
+
+if __name__ == '__main__':
+    app.run(debug=True)
