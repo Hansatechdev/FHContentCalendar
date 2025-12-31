@@ -1,34 +1,51 @@
-# Content Calendar Viewer - Version 5.7
-# Updated: December 30, 2025
-# Changes: Month view Previous/Next now changes month correctly
+# Content Calendar Viewer - Version 6.0
+# Updated: December 31, 2025
+# Changes: Password protection + secure Excel upload
 
 import pandas as pd
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, flash, url_for
+from flask_httpauth import HTTPBasicAuth
+from werkzeug.utils import secure_filename
 import os
 from datetime import timedelta, date
 from calendar import monthrange
 
 app = Flask(__name__, template_folder='templates')
 app.static_folder = 'downloaded_images'
+app.secret_key = 'super-secret-key'  # Needed for flash messages
 
-PY_VERSION = "5.7"
+# === PASSWORD PROTECTION ===
+auth = HTTPBasicAuth()
+
+# CHANGE THESE TO YOUR OWN STRONG VALUES!
+users = {
+    "admin": "4%2*Ax&TSnaV4RwT"  # Change this!
+}
+
+@auth.get_password
+def get_pw(username):
+    return users.get(username)
+
+# === FILE UPLOAD CONFIG ===
+UPLOAD_FOLDER = '.'
+ALLOWED_EXTENSIONS = {'xlsx'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Load Excel
-df = pd.read_excel('Content_Calendar.xlsx', sheet_name='Feed List')
+def load_data():
+    df = pd.read_excel('Content_Calendar.xlsx', sheet_name='Feed List')
+    df['Publish Date (DD/MM/YYYY)'] = pd.to_datetime(df['Publish Date (DD/MM/YYYY)'], format='%d/%m/%Y', errors='coerce')
+    df = df.dropna(subset=['Publish Date (DD/MM/YYYY)'])
+    df = df.fillna('')
+    return df.sort_values('Publish Date (DD/MM/YYYY)')
 
-df['Publish Date (DD/MM/YYYY)'] = pd.to_datetime(df['Publish Date (DD/MM/YYYY)'], format='%d/%m/%Y', errors='coerce')
-df = df.dropna(subset=['Publish Date (DD/MM/YYYY)'])
-df = df.fillna('')
-
+df = load_data()
 df_all = df.sort_values('Publish Date (DD/MM/YYYY)', ascending=False)
 
-df = df.sort_values('Publish Date (DD/MM/YYYY)')
-
 unique_dates = sorted(df['Publish Date (DD/MM/YYYY)'].dt.date.unique())
-
 unique_month_first_days = sorted(set(date(d.year, d.month, 1) for d in unique_dates))
-
-IMAGE_FOLDER = 'downloaded_images'
 
 FH_LOGO = 'https://scontent.ftll3-1.fna.fbcdn.net/v/t39.30808-1/457303426_911180744386777_3888699262340289275_n.jpg?stp=dst-jpg_s200x200_tt6&_nc_cat=102&ccb=1-7&_nc_sid=2d3e12&_nc_ohc=Nd6kmFjAJQEQ7kNvwFJ0lkG&_nc_oc=AdnOJfcQCICar3GKfMiQ8Fbyf6cCvhpDht7GswwCBDJqBNl9p2Ngo3LgTxef1oEIM7kBPMJxOpfeILHZNneZy03z&_nc_zt=24&_nc_ht=scontent.ftll3-1.fna&_nc_gid=-IS6c9rLDrHQIP3ejnsIoA&oh=00_Afk6sAZDlfx82GcdXX2vSpBJWlk9JjorQW5Ql0KMPSbuWA&oe=6959C0AA'
 
@@ -58,7 +75,10 @@ def get_weekday_headers():
     return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 @app.route('/')
+@auth.login_required
 def index():
+    global df, df_all, unique_dates, unique_month_first_days  # Reload data after upload
+
     view_mode = request.args.get('mode', 'day')
     date_str = request.args.get('date')
 
@@ -105,28 +125,17 @@ def index():
 
     weekday_headers = get_weekday_headers()
 
-    # Week ranges for dropdown
     week_options = {}
     for d in unique_dates:
         start, end = get_week_range(d)
         week_options[d] = f"Week of {start.strftime('%b %d')} - {end.strftime('%b %d, %Y')}"
 
-    # Navigation - FIXED FOR MONTH VIEW
-    if view_mode == 'month':
-        # Previous month
-        prev_month_date = selected_date - timedelta(days=32)
-        prev_date = date(prev_month_date.year, prev_month_date.month, 1)
-        # Next month
-        next_month_date = selected_date + timedelta(days=32)
-        next_date = date(next_month_date.year, next_month_date.month, 1)
-    else:
-        # Day/week/all navigation
-        try:
-            current_idx = unique_dates.index(selected_date)
-            prev_date = unique_dates[current_idx - 1] if current_idx > 0 else None
-            next_date = unique_dates[current_idx + 1] if current_idx < len(unique_dates) - 1 else None
-        except ValueError:
-            prev_date = next_date = None
+    try:
+        current_idx = unique_dates.index(selected_date)
+        prev_date = unique_dates[current_idx - 1] if current_idx > 0 else None
+        next_date = unique_dates[current_idx + 1] if current_idx < len(unique_dates) - 1 else None
+    except ValueError:
+        prev_date = next_date = None
 
     return render_template('index.html',
                            posts=posts,
@@ -142,7 +151,43 @@ def index():
                            weekday_headers=weekday_headers,
                            week_options=week_options,
                            logo=FH_LOGO,
-                           py_version=PY_VERSION)
+                           py_version="6.0")
+
+# === UPLOAD ROUTE ===
+@app.route('/upload', methods=['GET', 'POST'])
+@auth.login_required
+def upload_file():
+    global df, df_all, unique_dates, unique_month_first_days  # Reload data
+
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            flash('No file part')
+            return redirect(request.url)
+        file = request.files['file']
+        if file.filename == '':
+            flash('No selected file')
+            return redirect(request.url)
+        if file and allowed_file(file.filename):
+            filename = 'Content_Calendar.xlsx'
+            file.save(filename)
+            # Reload data
+            df = load_data()
+            df_all = df.sort_values('Publish Date (DD/MM/YYYY)', ascending=False)
+            unique_dates = sorted(df['Publish Date (DD/MM/YYYY)'].dt.date.unique())
+            unique_month_first_days = sorted(set(date(d.year, d.month, 1) for d in unique_dates))
+            flash('File successfully uploaded')
+            return redirect('/')
+        else:
+            flash('Invalid file type')
+    return '''
+    <!doctype html>
+    <title>Upload New Calendar</title>
+    <h1>Upload New Content_Calendar.xlsx</h1>
+    <form method=post enctype=multipart/form-data>
+      <input type=file name=file accept=".xlsx">
+      <input type=submit value=Upload>
+    </form>
+    '''
 
 if __name__ == '__main__':
     app.run(debug=True)
