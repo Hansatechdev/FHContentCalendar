@@ -1,9 +1,10 @@
-# Content Calendar Viewer - Version 6.0
+# Content Calendar Viewer - Version 6.2
 # Updated: December 31, 2025
-# Changes: Password protection + secure Excel upload
-
+# Changes: Password from environment variables (secure)
+from dotenv import load_dotenv
+load_dotenv()
 import pandas as pd
-from flask import Flask, render_template, request, redirect, flash, url_for
+from flask import Flask, render_template, request, redirect, flash
 from flask_httpauth import HTTPBasicAuth
 from werkzeug.utils import secure_filename
 import os
@@ -12,28 +13,31 @@ from calendar import monthrange
 
 app = Flask(__name__, template_folder='templates')
 app.static_folder = 'downloaded_images'
-app.secret_key = 'super-secret-key'  # Needed for flash messages
+app.secret_key = 'change-this-too'
 
-# === PASSWORD PROTECTION ===
+# === PASSWORD FROM ENVIRONMENT ===
 auth = HTTPBasicAuth()
 
-# CHANGE THESE TO YOUR OWN STRONG VALUES!
-users = {
-    "admin": "4%2*Ax&TSnaV4RwT"  # Change this!
-}
+USERNAME = os.getenv('APP_USERNAME', 'admin')  # Default fallback
+PASSWORD = os.getenv('APP_PASSWORD', 'default_password_change_me')  # Change default!
+
+users = {USERNAME: PASSWORD}
 
 @auth.get_password
 def get_pw(username):
     return users.get(username)
-
+    
 # === FILE UPLOAD CONFIG ===
-UPLOAD_FOLDER = '.'
-ALLOWED_EXTENSIONS = {'xlsx'}
+ALLOWED_EXCEL = {'xlsx'}
+ALLOWED_IMAGES = {'jpg', 'jpeg'}
 
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+def allowed_excel(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXCEL
 
-# Load Excel
+def allowed_image(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMAGES
+
+# Load data
 def load_data():
     df = pd.read_excel('Content_Calendar.xlsx', sheet_name='Feed List')
     df['Publish Date (DD/MM/YYYY)'] = pd.to_datetime(df['Publish Date (DD/MM/YYYY)'], format='%d/%m/%Y', errors='coerce')
@@ -77,7 +81,7 @@ def get_weekday_headers():
 @app.route('/')
 @auth.login_required
 def index():
-    global df, df_all, unique_dates, unique_month_first_days  # Reload data after upload
+    global df, df_all, unique_dates, unique_month_first_days
 
     view_mode = request.args.get('mode', 'day')
     date_str = request.args.get('date')
@@ -151,13 +155,13 @@ def index():
                            weekday_headers=weekday_headers,
                            week_options=week_options,
                            logo=FH_LOGO,
-                           py_version="6.0")
+                           py_version="6.1")
 
-# === UPLOAD ROUTE ===
-@app.route('/upload', methods=['GET', 'POST'])
+# === EXCEL UPLOAD ===
+@app.route('/upload-calendar', methods=['GET', 'POST'])
 @auth.login_required
-def upload_file():
-    global df, df_all, unique_dates, unique_month_first_days  # Reload data
+def upload_calendar():
+    global df, df_all, unique_dates, unique_month_first_days
 
     if request.method == 'POST':
         if 'file' not in request.files:
@@ -167,26 +171,53 @@ def upload_file():
         if file.filename == '':
             flash('No selected file')
             return redirect(request.url)
-        if file and allowed_file(file.filename):
-            filename = 'Content_Calendar.xlsx'
-            file.save(filename)
+        if file and allowed_excel(file.filename):
+            file.save('Content_Calendar.xlsx')
             # Reload data
             df = load_data()
             df_all = df.sort_values('Publish Date (DD/MM/YYYY)', ascending=False)
             unique_dates = sorted(df['Publish Date (DD/MM/YYYY)'].dt.date.unique())
             unique_month_first_days = sorted(set(date(d.year, d.month, 1) for d in unique_dates))
-            flash('File successfully uploaded')
+            flash('Calendar updated!')
             return redirect('/')
         else:
-            flash('Invalid file type')
+            flash('Invalid file — .xlsx only')
     return '''
-    <!doctype html>
-    <title>Upload New Calendar</title>
-    <h1>Upload New Content_Calendar.xlsx</h1>
+    <h1>Upload New Calendar (.xlsx)</h1>
     <form method=post enctype=multipart/form-data>
       <input type=file name=file accept=".xlsx">
       <input type=submit value=Upload>
     </form>
+    <p><a href="/">Back</a></p>
+    '''
+
+# === IMAGE UPLOAD ===
+@app.route('/upload-image', methods=['GET', 'POST'])
+@auth.login_required
+def upload_image():
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            flash('No file part')
+            return redirect(request.url)
+        file = request.files['file']
+        if file.filename == '':
+            flash('No selected file')
+            return redirect(request.url)
+        if file and allowed_image(file.filename):
+            filename = secure_filename(file.filename)
+            file.save(os.path.join('downloaded_images', filename))
+            flash(f'Image "{filename}" uploaded!')
+            return redirect('/')
+        else:
+            flash('Invalid image — .jpg or .jpeg only')
+    return '''
+    <h1>Upload Image (.jpg or .jpeg)</h1>
+    <p>Name the file exactly like the "Item Name" in Excel (e.g., Org_Spiritual_Jan1.jpg)</p>
+    <form method=post enctype=multipart/form-data>
+      <input type=file name=file accept=".jpg,.jpeg">
+      <input type=submit value=Upload>
+    </form>
+    <p><a href="/">Back</a></p>
     '''
 
 if __name__ == '__main__':
