@@ -1,6 +1,6 @@
-<!-- Content Calendar Viewer Template - HTML Version 5.12 -->
-<!-- Updated: December 30, 2025 -->
-<!-- Changes: Line breaks fixed to replace literal \\n with <br> -->
+<!-- Content Calendar Viewer Template - HTML Version 6.12 -->
+<!-- Updated: December 31, 2025 -->
+<!-- Changes: Removed Week view, All view shows from selected date and earlier -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -14,7 +14,6 @@
     .card { background:white; border-radius:16px; box-shadow:0 4px 12px rgba(0,0,0,0.1); max-width:420px; margin:20px auto; padding:20px; }
     .category-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
     .category { background:#AEBB43; color:white; padding:4px 12px; border-radius:20px; font-size:14px; font-weight:600; }
-    .new-badge { background:#F4831B; color:white; padding:2px 8px; border-radius:12px; font-size:12px; }
     .title-row { display:flex; align-items:center; margin-bottom:8px; }
     .logo { width:40px; height:40px; border-radius:50%; object-fit:cover; margin-right:12px; }
     h2 { margin:0; font-size:22px; color:#000; }
@@ -42,33 +41,23 @@
 <body>
 
 <div class="nav">
-
-
- <br><br>
-<a href="/upload" style="background:#47BBBC;color:white;padding:10px 20px;border-radius:30px;text-decoration:none;font-weight:600;">Upload New Calendar</a>
-<a href="/upload-image" style="background:#47BBBC;color:white;padding:10px 20px;border-radius:30px;text-decoration:none;font-weight:600;">Upload Image</a>
- <br><br>
+  <br><br>
+  <a href="/upload-calendar" style="background:#47BBBC;color:white;padding:10px 20px;border-radius:30px;text-decoration:none;font-weight:600;margin-right:10px;">Upload New Calendar</a>
+  <a href="/upload-image" style="background:#47BBBC;color:white;padding:10px 20px;border-radius:30px;text-decoration:none;font-weight:600;">Upload Images</a>
+  <br><br>
   <strong>View Mode:</strong>
   <select onchange="window.location.href='/?mode=' + this.value + '&date={{ selected_date }}'">
     <option value="day" {% if view_mode == 'day' %}selected{% endif %}>Day</option>
-    <option value="week" {% if view_mode == 'week' %}selected{% endif %}>Week</option>
     <option value="month" {% if view_mode == 'month' %}selected{% endif %}>Month</option>
     <option value="all" {% if view_mode == 'all' %}selected{% endif %}>All (Feed)</option>
   </select>
-
-   <br><br>
+  <br><br>
   <strong>Select:</strong>
   <select onchange="window.location.href='/?date=' + this.value + '&mode={{ view_mode }}'">
     {% if view_mode == 'month' %}
       {% for first_day in unique_month_first_days %}
         <option value="{{ first_day }}" {% if first_day.year == selected_date.year and first_day.month == selected_date.month %}selected{% endif %}>
           {{ first_day.strftime('%B %Y') }}
-        </option>
-      {% endfor %}
-    {% elif view_mode == 'week' %}
-      {% for d in dates %}
-        <option value="{{ d }}" {% if d == selected_date %}selected{% endif %}>
-          {{ week_options[d] }}
         </option>
       {% endfor %}
     {% else %}
@@ -80,16 +69,14 @@
     {% endif %}
   </select>
   <br><br>
-  {% if prev_date %}<a href="/?date={{ prev_date }}&mode={{ view_mode }}">← Previous</a>{% endif %}
-  {% if next_date %}<a href="/?date={{ next_date }}&mode={{ view_mode }}" style="margin-left: 40px;">Next →</a>{% endif %}
+  {% if show_nav %}
+    {% if prev_date %}<a href="/?date={{ prev_date }}&mode={{ view_mode }}">← Previous</a>{% endif %}
+    {% if next_date %}<a href="/?date={{ next_date }}&mode={{ view_mode }}" style="margin-left: 40px;">Next →</a>{% endif %}
+  {% endif %}
 </div>
 
-{% if view_mode == 'day' or view_mode == 'week' or view_mode == 'all' %}
-  {% set display_posts = posts if view_mode != 'week' else week_posts %}
-  {% if view_mode == 'all' %}
-    {% set display_posts = posts %}
-  {% endif %}
-  {% for post in display_posts %}
+{% if view_mode == 'day' or view_mode == 'all' %}
+  {% for post in posts %}
   <div class="card">
     <div class="category-header">
       <span class="category">{{ post['Sub-Category'] or 'Organization' }}</span>
@@ -133,7 +120,7 @@
               {{ post['Sub-Category'] }} - {{ post['Item Name'] }}
               <div class="post-preview">
                 <strong>{{ post['Title'] }}</strong><br>
-                {{ post['Body Text'] | replace('\\n', '<br>') | safe | truncate(200) }}
+                {{ post['Body Text'] | replace('\n', '<br>') | safe | truncate(200) }}
               </div>
             </div>
           {% endfor %}
@@ -144,7 +131,7 @@
 {% endif %}
 
 <div class="version">
-  Render Post Version: {{ py_version }} | HTML Version: 5.12
+  Render Post Version: {{ py_version }} | HTML Version: 6.12
 </div>
 
 </body>
