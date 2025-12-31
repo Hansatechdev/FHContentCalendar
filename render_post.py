@@ -1,6 +1,6 @@
-# Content Calendar Viewer - Version 6.14
+# Content Calendar Viewer - Version 6.22
 # Updated: December 31, 2025
-# Changes: All (Feed) view renders from selected date and earlier (newest first)
+# Changes: Removed accidental CSS paste (syntax error fix)
 
 import pandas as pd
 from flask import Flask, render_template, request, redirect, flash
@@ -76,7 +76,11 @@ def get_weekday_headers():
 @app.route('/')
 @auth.login_required
 def index():
-    global df
+    # Reload data on every request
+    df = load_data()
+
+    unique_dates = sorted(df['Publish Date (DD/MM/YYYY)'].dt.date.unique())
+    unique_month_first_days = sorted(set(date(d.year, d.month, 1) for d in unique_dates))
 
     view_mode = request.args.get('mode', 'day')
     date_str = request.args.get('date')
@@ -101,7 +105,6 @@ def index():
             calendar_data[d] = day_posts
 
     elif view_mode == 'all':
-        # All view: posts from selected date and earlier, newest first
         filtered_df = df[df['Publish Date (DD/MM/YYYY)'].dt.date <= selected_date]
         posts = filtered_df.sort_values('Publish Date (DD/MM/YYYY)', ascending=False).to_dict('records')
 
@@ -120,7 +123,6 @@ def index():
 
     weekday_headers = get_weekday_headers()
 
-    # Navigation - hide in month view
     show_nav = view_mode != 'month'
     if show_nav:
         try:
@@ -145,14 +147,12 @@ def index():
                            calendar_data=calendar_data,
                            weekday_headers=weekday_headers,
                            logo=FH_LOGO,
-                           py_version="6.14")
+                           py_version="6.22")
 
 # === UPLOAD ROUTES ===
 @app.route('/upload-calendar', methods=['GET', 'POST'])
 @auth.login_required
 def upload_calendar():
-    global df, unique_dates, unique_month_first_days
-
     if request.method == 'POST':
         if 'file' not in request.files:
             flash('No file part')
@@ -163,10 +163,7 @@ def upload_calendar():
             return redirect(request.url)
         if file and allowed_excel(file.filename):
             file.save('Content_Calendar.xlsx')
-            df = load_data()
-            unique_dates = sorted(df['Publish Date (DD/MM/YYYY)'].dt.date.unique())
-            unique_month_first_days = sorted(set(date(d.year, d.month, 1) for d in unique_dates))
-            flash('Calendar updated successfully!')
+            flash('Calendar updated successfully! Refresh to see changes.')
             return redirect('/')
         else:
             flash('Invalid file — .xlsx only')
