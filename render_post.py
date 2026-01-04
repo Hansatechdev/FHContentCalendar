@@ -25,7 +25,7 @@ app.secret_key = os.getenv('SECRET_KEY', 'fallback-secret-change-me')
 auth = HTTPBasicAuth()
 
 USERNAME = os.getenv('APP_USERNAME', 'admin')
-PASSWORD = os.getenv('APP_PASSWORD', 'change_me')
+PASSWORD = os.getenv('APP_PASSWORD', 'change-me')
 
 users = {USERNAME: PASSWORD}
 
