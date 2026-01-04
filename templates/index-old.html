@@ -1,6 +1,6 @@
-<!-- Content Calendar Viewer Template - HTML Version 6.32 -->
+<!-- Content Calendar Viewer Template - HTML Version 6.26 -->
 <!-- Updated: December 31, 2025 -->
-<!-- Changes: Text link fixed — shows when "No" and hyperlink fields are filled -->
+<!-- Changes: Explicitly removed margin-bottom from title-row and vertical margin from img -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -14,12 +14,12 @@
     .card { background:white; border-radius:16px; box-shadow:0 4px 12px rgba(0,0,0,0.1); max-width:420px; margin:20px auto; padding:20px; }
     .category-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
     .category { background:#AEBB43; color:white; padding:4px 12px; border-radius:20px; font-size:14px; font-weight:600; }
-    .title-row { display:flex; align-items:center; margin-bottom:8px; }
+    .title-row { display:flex; align-items:center; margin-bottom:0; } /* Explicitly no bottom margin */
     .logo { width:40px; height:40px; border-radius:50%; object-fit:cover; margin-right:12px; }
     h2 { margin:0; font-size:22px; color:#000; }
     .date { color:#666; font-size:14px; margin-bottom:16px; }
     p { font-size:18px; line-height:1.6; color:#000; margin:0 0 20px 0; }
-    img { width:100%; border-radius:12px; margin:16px 0; }
+    img { width:100%; border-radius:12px; margin:0; } /* No vertical margin */
     .footer { display:flex; justify-content:space-between; align-items:center; margin-top:20px; }
     .heart-icon { width:28px; height:28px; fill:#47BBBC; }
     .card-button { background:#47BBBC; color:white; padding:8px 20px; border-radius:30px; font-size:16px; font-weight:600; text-decoration:none; box-shadow:0 2px 4px rgba(0,0,0,0.1); }
@@ -82,9 +82,7 @@
   {% for post in posts %}
   <div class="card">
     <div class="category-header">
-      {% set item_parts = post['Item Name'].split('_') %}
-      {% set category = item_parts[1] if item_parts|length > 1 else (post['Sub-Category'] or 'Organization') %}
-      <span class="category">{{ category }}</span>
+      <span class="category">{{ post['Type'] or post['Sub-Category'] or 'Organization' }}</span>
     </div>
 
     <div class="title-row">
@@ -107,11 +105,11 @@
         </svg>
       {% endif %}
 
-      {% if post['Do you want a Button Overlay Hyperlink ?'] == 'Yes' and post['Hyperlink Text']|trim and post['Destination URL']|trim %}
+      {% if post['Do you want a Button Overlay Hyperlink ?'] == 'Yes' and post['Hyperlink Text'] and post['Destination URL'] %}
         <a href="{{ post['Destination URL'] }}" class="card-button" target="_blank">
           {{ post['Hyperlink Text'] }}
         </a>
-      {% elif post['Do you want a Button Overlay Hyperlink ?'] == 'No' and post['Hyperlink Text']|trim and post['Destination URL']|trim %}
+      {% elif post['Do you want a Button Overlay Hyperlink ?'] == 'No' and post['Hyperlink Text'] and post['Destination URL'] %}
         <a href="{{ post['Destination URL'] }}" class="text-link" target="_blank">
           {{ post['Hyperlink Text'] }}
         </a>
@@ -131,9 +129,7 @@
         {% if calendar_data[day] %}
           {% for post in calendar_data[day] %}
             <div class="day-posts">
-              {% set item_parts = post['Item Name'].split('_') %}
-              {% set category = item_parts[1] if item_parts|length > 1 else (post['Sub-Category'] or 'Organization') %}
-              {{ category }} - {{ post['Item Name'] }}
+              {{ post['Type'] or post['Sub-Category'] or 'Organization' }} - {{ post['Item Name'] }}
               <div class="post-preview">
                 <strong>{{ post['Title'] }}</strong><br>
                 {{ post['Body Text'] | replace('\\n', '<br>') | safe | truncate(200) }}
@@ -147,7 +143,7 @@
 {% endif %}
 
 <div class="version">
-  Render Post Version: {{ py_version }} | HTML Version: 6.32
+  Render Post Version: {{ py_version }} | HTML Version: 6.26
 </div>
 
 </body>
