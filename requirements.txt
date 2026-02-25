@@ -4,3 +4,4 @@ openpyxl
 gunicorn
 flask-httpauth
 python-dotenv
+requests

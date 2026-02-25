@@ -57,7 +57,7 @@ df = load_data()
 unique_dates = sorted(df['Publish Date (DD/MM/YYYY)'].dt.date.unique())
 unique_month_first_days = sorted(set(date(d.year, d.month, 1) for d in unique_dates))
 
-FH_LOGO = '/static/images/FH_Logo.jpg'
+FH_LOGO = 'https://scontent.ftll3-1.fna.fbcdn.net/v/t39.30808-1/457303426_911180744386777_3888699262340289275_n.jpg?stp=dst-jpg_s200x200_tt6&_nc_cat=102&ccb=1-7&_nc_sid=2d3e12&_nc_ohc=Nd6kmFjAJQEQ7kNvwFJ0lkG&_nc_oc=AdnOJfcQCICar3GKfMiQ8Fbyf6cCvhpDht7GswwCBDJqBNl9p2Ngo3LgTxef1oEIM7kBPMJxOpfeILHZNneZy03z&_nc_zt=24&_nc_ht=scontent.ftll3-1.fna&_nc_gid=-IS6c9rLDrHQIP3ejnsIoA&oh=00_Afk6sAZDlfx82GcdXX2vSpBJWlk9JjorQW5Ql0KMPSbuWA&oe=6959C0AA'
 
 CATEGORY_COLORS = {
     'About FH': '#AEBB43',

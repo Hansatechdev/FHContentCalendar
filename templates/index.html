@@ -1,6 +1,6 @@
-<!-- Content Calendar Viewer Template - HTML Version 6.32 -->
+<!-- Content Calendar Viewer Template - HTML Version 6.33 -->
 <!-- Updated: December 31, 2025 -->
-<!-- Changes: Text link fixed — shows when "No" and hyperlink fields are filled -->
+<!-- Changes: Month calendar fixed with correct weekday alignment (Jan 5, 2026 is Monday) -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -38,6 +38,7 @@
     .post-preview { display: none; position: absolute; background: white; border: 1px solid #ccc; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 10; width: 350px; left: 50%; transform: translateX(-50%); bottom: 110%; border-radius: 12px; }
     .day:hover .post-preview { display: block; }
     .month-title { text-align: center; font-size: 28px; font-weight: 700; margin: 30px 0 20px 0; color: #000; }
+    .empty-day { background: transparent; border: none; cursor: default; }
     .version { text-align:center; font-size:12px; color:#888; margin-top:20px; }
   </style>
 </head>
@@ -82,9 +83,7 @@
   {% for post in posts %}
   <div class="card">
     <div class="category-header">
-      {% set item_parts = post['Item Name'].split('_') %}
-      {% set category = item_parts[1] if item_parts|length > 1 else (post['Sub-Category'] or 'Organization') %}
-      <span class="category">{{ category }}</span>
+      <span class="category">{{ post['Sub-Category'] or 'Organization' }}</span>
     </div>
 
     <div class="title-row">
@@ -107,11 +106,11 @@
         </svg>
       {% endif %}
 
-      {% if post['Do you want a Button Overlay Hyperlink ?'] == 'Yes' and post['Hyperlink Text']|trim and post['Destination URL']|trim %}
+      {% if post['Do you want a Button Overlay Hyperlink ?'] == 'Yes' and post['Hyperlink Text'] and post['Destination URL'] %}
         <a href="{{ post['Destination URL'] }}" class="card-button" target="_blank">
           {{ post['Hyperlink Text'] }}
         </a>
-      {% elif post['Do you want a Button Overlay Hyperlink ?'] == 'No' and post['Hyperlink Text']|trim and post['Destination URL']|trim %}
+      {% elif post['Do you want a Button Overlay Hyperlink ?'] == 'No' and post['Hyperlink Text'] and post['Destination URL'] %}
         <a href="{{ post['Destination URL'] }}" class="text-link" target="_blank">
           {{ post['Hyperlink Text'] }}
         </a>
@@ -125,15 +124,22 @@
     {% for header in weekday_headers %}
       <div class="weekday-header">{{ header }}</div>
     {% endfor %}
+
+    <!-- Add empty days before month starts -->
+    {% set first_weekday = selected_date.replace(day=1).weekday() %}
+    {% set offset = (first_weekday + 1) % 7 %}
+    {% for _ in range(offset) %}
+      <div class="day empty-day"></div>
+    {% endfor %}
+
+    <!-- Month days -->
     {% for day in month_days %}
       <div class="day" onclick="window.location.href='/?date={{ day }}&mode=day'">
         <div class="day-number">{{ day.day }}</div>
         {% if calendar_data[day] %}
           {% for post in calendar_data[day] %}
             <div class="day-posts">
-              {% set item_parts = post['Item Name'].split('_') %}
-              {% set category = item_parts[1] if item_parts|length > 1 else (post['Sub-Category'] or 'Organization') %}
-              {{ category }} - {{ post['Item Name'] }}
+              {{ post['Sub-Category'] or 'Organization' }} - {{ post['Item Name'] }}
               <div class="post-preview">
                 <strong>{{ post['Title'] }}</strong><br>
                 {{ post['Body Text'] | replace('\\n', '<br>') | safe | truncate(200) }}
