@@ -1,6 +1,6 @@
-# Content Calendar Viewer - Version 6.22
-# Updated: December 31, 2025
-# Changes: Removed accidental CSS paste (syntax error fix)
+# Content Calendar Viewer - Version 6.41
+# Updated: January 07, 2026
+# Changes: Data fully reloaded on every request + future dates now visible
 
 import pandas as pd
 from flask import Flask, render_template, request, redirect, flash
@@ -25,7 +25,7 @@ app.secret_key = os.getenv('SECRET_KEY', 'fallback-secret-change-me')
 auth = HTTPBasicAuth()
 
 USERNAME = os.getenv('APP_USERNAME', 'admin')
-PASSWORD = os.getenv('APP_PASSWORD', 'change-me')
+PASSWORD = os.getenv('APP_PASSWORD', 'change_me')
 
 users = {USERNAME: PASSWORD}
 
@@ -49,15 +49,9 @@ def load_data():
     df['Publish Date (DD/MM/YYYY)'] = pd.to_datetime(df['Publish Date (DD/MM/YYYY)'], format='%d/%m/%Y', errors='coerce')
     df = df.dropna(subset=['Publish Date (DD/MM/YYYY)'])
     df = df.fillna('')
-    return df
+    return df.sort_values('Publish Date (DD/MM/YYYY)')
 
-# Initial load
-df = load_data()
-
-unique_dates = sorted(df['Publish Date (DD/MM/YYYY)'].dt.date.unique())
-unique_month_first_days = sorted(set(date(d.year, d.month, 1) for d in unique_dates))
-
-FH_LOGO = '/static/images/FH_Logo.jpg'
+FH_LOGO = '/static/images/FH_Logo.jpg'   # Updated to local static file
 
 CATEGORY_COLORS = {
     'About FH': '#AEBB43',
@@ -76,7 +70,7 @@ def get_weekday_headers():
 @app.route('/')
 @auth.login_required
 def index():
-    # Reload data on every request
+    # FULL RELOAD ON EVERY REQUEST — this fixes future dates not appearing
     df = load_data()
 
     unique_dates = sorted(df['Publish Date (DD/MM/YYYY)'].dt.date.unique())
@@ -108,7 +102,7 @@ def index():
         filtered_df = df[df['Publish Date (DD/MM/YYYY)'].dt.date <= selected_date]
         posts = filtered_df.sort_values('Publish Date (DD/MM/YYYY)', ascending=False).to_dict('records')
 
-    # Process posts
+    # Process posts for images
     for post in posts:
         item_name = post['Item Name'].strip()
         image_filename = f"{item_name}.jpg"
@@ -117,9 +111,6 @@ def index():
             post['image'] = image_filename
         else:
             post['image'] = None
-
-        sub_cat = post.get('Sub-Category', 'About FH').strip()
-        post['category_color'] = CATEGORY_COLORS.get(sub_cat, '#AEBB43')
 
     weekday_headers = get_weekday_headers()
 
@@ -147,7 +138,7 @@ def index():
                            calendar_data=calendar_data,
                            weekday_headers=weekday_headers,
                            logo=FH_LOGO,
-                           py_version="6.22")
+                           py_version="6.41")
 
 # === UPLOAD ROUTES ===
 @app.route('/upload-calendar', methods=['GET', 'POST'])
@@ -163,7 +154,7 @@ def upload_calendar():
             return redirect(request.url)
         if file and allowed_excel(file.filename):
             file.save('Content_Calendar.xlsx')
-            flash('Calendar updated successfully! Refresh to see changes.')
+            flash('Calendar updated successfully! Refresh the page.')
             return redirect('/')
         else:
             flash('Invalid file — .xlsx only')
